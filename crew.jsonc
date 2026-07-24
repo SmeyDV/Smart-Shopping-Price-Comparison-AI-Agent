@@ -1,0 +1,52 @@
+{
+  // This project uses CrewAI 1.15.5's declarative JSONC crew format.
+  "name": "Smart Shopping & Price-Comparison AI Agent",
+
+  // Agent IDs must exactly match files in agents/.
+  "agents": [
+    "product_search_specialist",
+    "price_comparison_analyst",
+    "product_recommendation_advisor"
+  ],
+
+  // Sequential order matters: search -> comparison -> recommendation.
+  "tasks": [
+    {
+      "name": "product_search",
+      "description": "Research the user's request: {product_query}\n\nUse Exa Search to find candidate products and the website-reading tool to verify product pages. Find at least five UNIQUE products that match the user's budget, intended use, preferred features, and buyer location. A different seller or cosmetic variation of the same model does not count as a unique product unless the specifications materially differ.\n\nFor every product, capture: exact product name/model, listed price and original currency, key specifications, seller/store, availability, warranty, shipping cost and Cambodia delivery status when relevant, and the direct product URL. Include the source URL for every product and factual shopping claim.\n\nReliability rules:\n- Never invent or estimate a price, discount, seller, review score, stock status, warranty, shipping cost, or URL.\n- Open only HTTP(S) URLs returned by Exa Search. Never construct, guess, or modify retailer or product URLs from memory.\n- If Exa returns an authentication/API error or no usable results, stop searching and clearly report that verified product research could not be completed. Do not fall back to guessed retailer pages.\n- Use \"Not provided\" or \"Could not verify\" for missing facts; an unknown shipping cost is not zero.\n- Exclude malformed URLs and clearly note pages that are unavailable, blocked, stale, CAPTCHA-protected, or empty.\n- Keep currencies as listed. Do not convert currencies unless a cited conversion rate is available.\n- Deduplicate products by model and material specifications.\n- If fewer than five products can be verified after reasonable searches, return the verified products and explicitly state the shortfall instead of fabricating entries.",
+      "expected_output": "A markdown report with (1) the interpreted requirements, (2) a table of at least five unique verified products when available, with columns for product/model, price and currency, specifications, seller, availability, warranty, shipping cost/Cambodia delivery, and direct source URL, and (3) verification notes listing missing data, duplicate exclusions, unavailable pages, invalid URLs, and any fact that could not be verified.",
+      "agent": "product_search_specialist"
+    },
+    {
+      "name": "price_comparison",
+      "description": "Using the verified Product Search context for {product_query}, compare the candidate products. For each product analyze listed price, discount (only when both original and sale prices are sourced), shipping cost, total known purchase cost, warranty, seller reliability evidence, return policy, advantages, and disadvantages.\n\nUse Exa Search only when a critical price, seller, warranty, return-policy, availability, or shipping claim is missing, stale, or conflicts across the Product Search evidence. Every additionally verified claim must include its Exa source URL. Do not perform broad new product discovery and do not replace a direct seller page with an unsourced summary.\n\nCalculate total cost only when all included components use the same currency. If shipping, tax, import duty, or another required component is unknown, label the total \"Incomplete — missing ...\" and never treat the missing amount as zero. Do not mix currencies in a numerical price range. Identify a normal price range only from comparable, verified products in the same currency and explain the sample used. Mark seller reliability or return policy \"Could not verify\" when the evidence does not establish it.\n\nChoose a best-value deal only when its price, seller, and URL are verified. Never invent products, prices, sellers, reviews, stock claims, or purchase links.",
+      "expected_output": "A markdown comparison table covering price, sourced discount, shipping, total cost or incomplete-cost reason, warranty, seller reliability, return policy, advantages, and disadvantages for every candidate. Follow it with a same-currency normal price range (or a clear explanation that one cannot be calculated), the best-value verified deal with its exact source URL, and a limitations section for inconsistent currencies or missing information.",
+      "agent": "price_comparison_analyst",
+      "context": ["product_search"]
+    },
+    {
+      "name": "final_recommendation",
+      "description": "Using ONLY the Product Search and Price Comparison context for {product_query}, recommend the best product for the user's budget, intended use, specifications, quality evidence, warranty, seller reliability, delivery feasibility, and overall value.\n\nInclude the recommended product, verified listed price and currency, seller, exact purchase URL from Product Search, key specifications, reasons, advantages, disadvantages, and one or two verified alternatives. Do not create or alter prices, URLs, review scores, seller claims, stock status, warranty terms, or shipping claims. If the evidence is insufficient for a confident purchase recommendation, say so and explain what the buyer must verify.\n\nEnd with safe buying guidance: confirm the exact model/SKU, final Cambodia delivery charge, taxes/import duty, warranty coverage in Cambodia, return policy, seller identity, secure payment method, and current price/stock on the linked page before paying.",
+      "expected_output": "A concise markdown purchasing recommendation containing the best verified product, price and currency, seller, exact purchase link, specifications, reasons, advantages, disadvantages, one or two verified alternatives, confidence/verification limitations, and practical safe-buying checks. Any unavailable or unverified fact must be labeled explicitly.",
+      "agent": "product_recommendation_advisor",
+      "context": ["product_search", "price_comparison"]
+    }
+  ],
+
+  "process": "sequential",
+  "verbose": true,
+  "memory": false,
+  "planning": false,
+  "cache": true,
+  "tracing": false,
+  "before_kickoff_callbacks": [
+    {
+      "python": "tools.runtime_checks.validate_runtime"
+    }
+  ],
+
+  // A runnable sample default. Override it with `crewai run --inputs`.
+  "inputs": {
+    "product_query": "Find the best gaming laptop under $1000 available to a buyer in Cambodia. Compare at least five products and recommend the best value."
+  }
+}

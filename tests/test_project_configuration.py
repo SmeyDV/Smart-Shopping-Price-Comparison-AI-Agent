@@ -1,0 +1,158 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import tomllib
+import unittest
+from unittest.mock import patch
+
+import json5
+
+from tools.runtime_checks import validate_runtime
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def load_jsonc(path: Path) -> dict:
+    return json5.loads(path.read_text(encoding="utf-8"))
+
+
+class ProjectConfigurationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.crew = load_jsonc(ROOT / "crew.jsonc")
+        cls.agents = {
+            name: load_jsonc(ROOT / "agents" / f"{name}.jsonc")
+            for name in cls.crew["agents"]
+        }
+
+    def test_project_is_pinned_to_python_312_and_crewai_1155(self) -> None:
+        with (ROOT / "pyproject.toml").open("rb") as handle:
+            project = tomllib.load(handle)
+
+        self.assertEqual(project["project"]["requires-python"], ">=3.12,<3.13")
+        self.assertIn("crewai==1.15.5", project["project"]["dependencies"])
+        self.assertIn(
+            "crewai-tools[exa-py]==1.15.5",
+            project["project"]["dependencies"],
+        )
+        self.assertEqual(project["tool"]["crewai"]["definition"], "crew.jsonc")
+        self.assertEqual((ROOT / ".python-version").read_text().strip(), "3.12")
+
+    def test_exact_agents_and_deepseek_configuration(self) -> None:
+        self.assertEqual(
+            self.crew["agents"],
+            [
+                "product_search_specialist",
+                "price_comparison_analyst",
+                "product_recommendation_advisor",
+            ],
+        )
+
+        for agent in self.agents.values():
+            self.assertEqual(agent["llm"]["model"], "deepseek/deepseek-v4-flash")
+            self.assertEqual(
+                agent["llm"]["additional_params"]["extra_body"]["thinking"]["type"],
+                "disabled",
+            )
+            self.assertFalse(agent["settings"]["allow_delegation"])
+            self.assertFalse(agent["settings"]["planning"])
+            self.assertTrue(agent["role"])
+            self.assertTrue(agent["goal"])
+            self.assertTrue(agent["backstory"])
+
+    def test_search_tools_are_limited_by_agent_responsibility(self) -> None:
+        self.assertEqual(
+            self.agents["product_search_specialist"]["tools"],
+            ["ExaSearchTool", "ScrapeWebsiteTool"],
+        )
+        self.assertEqual(
+            self.agents["price_comparison_analyst"]["tools"], ["ExaSearchTool"]
+        )
+        self.assertEqual(self.agents["product_recommendation_advisor"]["tools"], [])
+
+    def test_tasks_are_sequential_and_context_references_are_exact(self) -> None:
+        self.assertEqual(self.crew["process"], "sequential")
+        self.assertEqual(
+            self.crew["before_kickoff_callbacks"],
+            [{"python": "tools.runtime_checks.validate_runtime"}],
+        )
+        tasks = self.crew["tasks"]
+        self.assertEqual(
+            [task["name"] for task in tasks],
+            ["product_search", "price_comparison", "final_recommendation"],
+        )
+        self.assertEqual(tasks[0]["agent"], "product_search_specialist")
+        self.assertNotIn("context", tasks[0])
+        self.assertEqual(tasks[1]["agent"], "price_comparison_analyst")
+        self.assertEqual(tasks[1]["context"], ["product_search"])
+        self.assertEqual(tasks[2]["agent"], "product_recommendation_advisor")
+        self.assertEqual(
+            tasks[2]["context"], ["product_search", "price_comparison"]
+        )
+
+        known_task_ids = {task["name"] for task in tasks}
+        for task in tasks:
+            self.assertTrue(task["description"])
+            self.assertTrue(task["expected_output"])
+            self.assertIn(task["agent"], self.crew["agents"])
+            self.assertTrue(set(task.get("context", [])).issubset(known_task_ids))
+
+    def test_product_query_is_a_declared_default_and_used_by_every_task(self) -> None:
+        query = self.crew["inputs"].get("product_query")
+        self.assertIsInstance(query, str)
+        self.assertTrue(query.strip())
+        for task in self.crew["tasks"]:
+            self.assertIn("{product_query}", task["description"])
+
+    def test_example_env_lists_required_keys_without_real_values(self) -> None:
+        lines = (ROOT / ".env.example").read_text(encoding="utf-8").splitlines()
+        values = dict(
+            line.split("=", 1)
+            for line in lines
+            if line and not line.lstrip().startswith("#")
+        )
+        self.assertEqual(
+            set(values), {"DEEPSEEK_API_KEY", "EXA_API_KEY"}
+        )
+        self.assertTrue(all(value.startswith("your_") for value in values.values()))
+
+    def test_serper_is_not_referenced(self) -> None:
+        checked_paths = [
+            ROOT / "pyproject.toml",
+            ROOT / "crew.jsonc",
+            ROOT / ".env.example",
+            *sorted((ROOT / "agents").glob("*.jsonc")),
+        ]
+        for path in checked_paths:
+            self.assertNotIn(
+                "serper", path.read_text(encoding="utf-8").lower(), path.name
+            )
+
+    def test_configuration_contains_no_embedded_secret_like_values(self) -> None:
+        config_text = json.dumps(
+            {"crew": self.crew, "agents": self.agents}, sort_keys=True
+        )
+        self.assertNotIn("api_key", config_text.lower())
+
+    def test_runtime_check_rejects_missing_keys(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(
+                RuntimeError, "DEEPSEEK_API_KEY, EXA_API_KEY"
+            ):
+                validate_runtime({"product_query": "gaming laptop"})
+
+    def test_runtime_check_accepts_present_keys_and_query(self) -> None:
+        inputs = {"product_query": "gaming laptop"}
+        with patch.dict(
+            os.environ,
+            {"DEEPSEEK_API_KEY": "test-deepseek", "EXA_API_KEY": "test-exa"},
+            clear=True,
+        ):
+            self.assertIs(validate_runtime(inputs), inputs)
+
+
+if __name__ == "__main__":
+    unittest.main()

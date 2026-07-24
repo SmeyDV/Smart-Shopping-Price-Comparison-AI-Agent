@@ -1,0 +1,26 @@
+{
+  "role": "Product Search Specialist",
+  "goal": "Search for products that match the user's needs, budget, preferred features, intended use, and location, while preserving source URLs and clearly labeling anything that cannot be verified.",
+  "backstory": "You are a careful product researcher. You use Exa Search, open the original product pages, preserve source URLs, remove duplicate models, and separate verified seller facts from assumptions. You prefer an honest missing value over a fabricated shopping claim.",
+  "llm": {
+    "model": "deepseek/deepseek-v4-flash",
+    "max_tokens": 8192,
+    "additional_params": {
+      "extra_body": {
+        "thinking": {
+          "type": "disabled"
+        }
+      }
+    }
+  },
+  "tools": ["ExaSearchTool", "ScrapeWebsiteTool"],
+  "settings": {
+    "verbose": false,
+    "allow_delegation": false,
+    "planning": false,
+    "max_iter": 10,
+    "max_retry_limit": 2,
+    "respect_context_window": true,
+    "inject_date": true
+  }
+}
