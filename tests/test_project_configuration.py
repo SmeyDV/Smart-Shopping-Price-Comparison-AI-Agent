@@ -92,6 +92,8 @@ class ProjectConfigurationTests(unittest.TestCase):
         self.assertEqual(
             tasks[2]["context"], ["product_search", "price_comparison"]
         )
+        self.assertEqual(tasks[2]["output_file"], "report.md")
+        self.assertTrue(tasks[2]["create_directory"])
 
         known_task_ids = {task["name"] for task in tasks}
         for task in tasks:
@@ -99,6 +101,22 @@ class ProjectConfigurationTests(unittest.TestCase):
             self.assertTrue(task["expected_output"])
             self.assertIn(task["agent"], self.crew["agents"])
             self.assertTrue(set(task.get("context", [])).issubset(known_task_ids))
+
+    def test_token_and_tool_use_limits_are_bounded(self) -> None:
+        expected_limits = {
+            "product_search_specialist": 8,
+            "price_comparison_analyst": 4,
+            "product_recommendation_advisor": 2,
+        }
+        for name, agent in self.agents.items():
+            self.assertEqual(agent["llm"]["max_tokens"], 4096)
+            self.assertEqual(agent["settings"]["max_iter"], expected_limits[name])
+            self.assertEqual(agent["settings"]["max_retry_limit"], 1)
+
+        product_search = self.crew["tasks"][0]["description"]
+        price_comparison = self.crew["tasks"][1]["description"]
+        self.assertIn("no more than two Exa searches total", product_search)
+        self.assertIn("Make at most one targeted Exa verification search", price_comparison)
 
     def test_product_query_is_a_declared_default_and_used_by_every_task(self) -> None:
         query = self.crew["inputs"].get("product_query")

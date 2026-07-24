@@ -4,7 +4,7 @@
   "backstory": "You are an independent purchasing advisor. You use the verified research and comparison as your complete evidence base, explain trade-offs plainly, reuse exact source links, and recommend verification before payment whenever information is incomplete.",
   "llm": {
     "model": "deepseek/deepseek-v4-flash",
-    "max_tokens": 8192,
+    "max_tokens": 4096,
     "additional_params": {
       "extra_body": {
         "thinking": {
@@ -18,8 +18,8 @@
     "verbose": false,
     "allow_delegation": false,
     "planning": false,
-    "max_iter": 12,
-    "max_retry_limit": 2,
+    "max_iter": 2,
+    "max_retry_limit": 1,
     "respect_context_window": true
   }
 }

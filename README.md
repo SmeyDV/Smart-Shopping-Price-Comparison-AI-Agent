@@ -64,6 +64,16 @@ To ask a different shopping question:
 uv run crewai run --inputs '{"product_query":"Find a reliable Android phone under $400 available in Cambodia."}'
 ```
 
+Each successful run overwrites `report.md` with the final recommendation. Open
+that file in VS Code's Markdown Preview to view the formatted report. It is
+ignored by Git because it is generated output and may contain time-sensitive
+shopping information.
+
+To control API cost and context growth, Product Search uses at most two focused
+Exa searches and verifies at most five usable product pages plus one replacement.
+Price Comparison can make at most one targeted verification search. Agent
+iteration, retry, and output-token limits are also intentionally bounded.
+
 ## Check the configuration without spending API credits
 
 ```bash
