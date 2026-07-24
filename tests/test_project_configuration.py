@@ -38,6 +38,7 @@ class ProjectConfigurationTests(unittest.TestCase):
             "crewai-tools[exa-py]==1.15.5",
             project["project"]["dependencies"],
         )
+        self.assertIn("pydantic==2.12.5", project["project"]["dependencies"])
         self.assertEqual(project["tool"]["crewai"]["definition"], "crew.jsonc")
         self.assertEqual((ROOT / ".python-version").read_text().strip(), "3.12")
 
@@ -62,6 +63,21 @@ class ProjectConfigurationTests(unittest.TestCase):
             self.assertTrue(agent["role"])
             self.assertTrue(agent["goal"])
             self.assertTrue(agent["backstory"])
+
+        self.assertEqual(
+            self.agents["product_recommendation_advisor"]["llm"][
+                "response_format"
+            ],
+            {"type": "json_object"},
+        )
+        self.assertNotIn(
+            "response_format",
+            self.agents["product_search_specialist"]["llm"],
+        )
+        self.assertNotIn(
+            "response_format",
+            self.agents["price_comparison_analyst"]["llm"],
+        )
 
     def test_search_tools_are_limited_by_agent_responsibility(self) -> None:
         self.assertEqual(
@@ -92,8 +108,21 @@ class ProjectConfigurationTests(unittest.TestCase):
         self.assertEqual(
             tasks[2]["context"], ["product_search", "price_comparison"]
         )
-        self.assertEqual(tasks[2]["output_file"], "report.md")
-        self.assertTrue(tasks[2]["create_directory"])
+        self.assertEqual(
+            tasks[0]["output_pydantic"],
+            {"python": "tools.schemas.ProductSearchResult"},
+        )
+        self.assertEqual(
+            tasks[1]["output_pydantic"],
+            {"python": "tools.schemas.PriceComparisonResult"},
+        )
+        self.assertNotIn("output_pydantic", tasks[2])
+        self.assertIn("Return only the JSON object", tasks[2]["description"])
+        self.assertEqual(
+            tasks[2]["callback"],
+            {"python": "tools.reporting.save_recommendation_report"},
+        )
+        self.assertNotIn("output_file", tasks[2])
 
         known_task_ids = {task["name"] for task in tasks}
         for task in tasks:

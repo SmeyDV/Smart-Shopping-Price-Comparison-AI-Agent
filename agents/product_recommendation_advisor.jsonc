@@ -5,6 +5,9 @@
   "llm": {
     "model": "deepseek/deepseek-v4-flash",
     "max_tokens": 4096,
+    "response_format": {
+      "type": "json_object"
+    },
     "additional_params": {
       "extra_body": {
         "thinking": {

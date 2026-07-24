@@ -24,6 +24,7 @@ Example input:
 - **DeepSeek V4 Flash:** Performs reasoning, comparison, and recommendation.
 - **ExaSearchTool:** Searches the web for relevant products and source URLs.
 - **ScrapeWebsiteTool:** Reads product pages to verify available information.
+- **Pydantic:** Defines and validates the structured data exchanged by tasks.
 - **Python and uv:** Provide the runtime and dependency management.
 
 API keys are loaded from `.env` and are never hardcoded in the project.
@@ -41,13 +42,14 @@ The workflow contains three specialized agents:
 3. **Product Recommendation Advisor** uses only the results of the first two
    tasks to select the best-supported option and alternatives.
 
-The tasks run sequentially:
+The tasks run sequentially and exchange or validate structured objects:
 
 ```text
 User request
-    → Product search and verification
-    → Price and value comparison
-    → Final purchasing recommendation
+    → ProductSearchResult
+    → PriceComparisonResult
+    → FinalRecommendationResult
+    → Deterministic Markdown renderer
     → report.md
 ```
 
@@ -56,6 +58,14 @@ User request
 The agents must include direct source URLs and must not fabricate prices,
 sellers, availability, reviews, warranties, shipping details, or purchase
 links. Missing evidence is labeled **Could not verify**.
+
+Pydantic schemas give the inter-agent handoffs a fixed set of typed fields and
+reject unexpected fields. The final agent uses DeepSeek's supported JSON-object
+response mode, and the report callback validates that JSON against
+`FinalRecommendationResult`. Prices use exact decimal values, product URLs must
+use HTTP(S), and the product-search result accepts no more than five product
+records. These structural checks complement the agents' evidence instructions;
+they do not independently prove that every shopping claim is true.
 
 To control API cost and token usage, product research is limited to two focused
 Exa searches and five verified product pages plus one replacement. The price
@@ -75,7 +85,8 @@ The final Markdown recommendation contains:
 - Safe-buying checklist
 - Numbered source list
 
-Every successful run automatically saves the final recommendation to
+After the final structured result is validated, a Python callback renders the
+fixed report sections and automatically saves the recommendation to
 `report.md`.
 
 ## 7. Conclusion

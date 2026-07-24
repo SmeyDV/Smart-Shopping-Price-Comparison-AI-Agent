@@ -2,8 +2,11 @@
 
 This CrewAI 1.15.5 project searches for products, verifies original product
 pages, compares total costs, and produces an evidence-based recommendation.
-It deliberately labels information that cannot be verified instead of filling
-gaps with guesses.
+The first two task handoffs exchange validated Pydantic data instead of
+free-form reports. The final agent uses DeepSeek's supported JSON-object mode;
+the callback validates that JSON as `FinalRecommendationResult` before a
+deterministic renderer converts it to Markdown. The crew deliberately labels
+information that cannot be verified instead of filling gaps with guesses.
 
 ## What the crew does
 
@@ -13,6 +16,15 @@ gaps with guesses.
    currencies separate and does not count unknown shipping as zero.
 3. `final_recommendation` recommends the best supported option and gives safe
    buying checks for a buyer in the requested location.
+
+The workflow uses these structured contracts:
+
+- `ProductSearchResult` contains interpreted requirements, product evidence,
+  research issues, and any result-count shortfall.
+- `PriceComparisonResult` contains per-product costs, value analysis,
+  same-currency ranges, the optional best-value deal, and limitations.
+- `FinalRecommendationResult` contains the recommendation, alternatives,
+  confidence, buying checklist, and exact source references.
 
 Internet access is deliberately limited:
 
@@ -64,10 +76,12 @@ To ask a different shopping question:
 uv run crewai run --inputs '{"product_query":"Find a reliable Android phone under $400 available in Cambodia."}'
 ```
 
-Each successful run overwrites `report.md` with the final recommendation. Open
-that file in VS Code's Markdown Preview to view the formatted report. It is
-ignored by Git because it is generated output and may contain time-sensitive
-shopping information.
+The final agent uses `response_format: {"type":"json_object"}` because that is
+the structured response type supported by DeepSeek. A task callback validates
+the returned object with Pydantic, then overwrites `report.md` with the rendered
+recommendation. Open that file in VS Code's Markdown Preview to view the
+formatted report. It is ignored by Git because it is generated output and may
+contain time-sensitive shopping information.
 
 To control API cost and context growth, Product Search uses at most two focused
 Exa searches and verifies at most five usable product pages plus one replacement.
@@ -93,10 +107,13 @@ uv run python -m unittest discover -s tests -v
 ├── skills/
 │   └── .gitkeep
 ├── tests/
-│   └── test_project_configuration.py
+│   ├── test_project_configuration.py
+│   └── test_structured_outputs.py
 ├── tools/
 │   ├── __init__.py
-│   └── runtime_checks.py
+│   ├── reporting.py
+│   ├── runtime_checks.py
+│   └── schemas.py
 ├── .env.example
 ├── .gitignore
 ├── .python-version
