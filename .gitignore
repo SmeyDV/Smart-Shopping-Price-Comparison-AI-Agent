@@ -5,5 +5,7 @@ __pycache__/
 *.py[cod]
 .DS_Store
 report.md
+outputs/*
+!outputs/.gitkeep
 search_results_*.txt
 *.log

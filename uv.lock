@@ -1925,6 +1925,7 @@ dependencies = [
     { name = "crewai" },
     { name = "crewai-tools", extra = ["exa-py"] },
     { name = "pydantic" },
+    { name = "pymupdf" },
 ]
 
 [package.metadata]
@@ -1932,6 +1933,7 @@ requires-dist = [
     { name = "crewai", specifier = "==1.15.5" },
     { name = "crewai-tools", extras = ["exa-py"], specifier = "==1.15.5" },
     { name = "pydantic", specifier = "==2.12.5" },
+    { name = "pymupdf", specifier = "==1.26.7" },
 ]
 
 [[package]]

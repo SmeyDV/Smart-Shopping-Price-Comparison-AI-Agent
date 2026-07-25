@@ -25,6 +25,7 @@ Example input:
 - **ExaSearchTool:** Searches the web for relevant products and source URLs.
 - **ScrapeWebsiteTool:** Reads product pages to verify available information.
 - **Pydantic:** Defines and validates the structured data exchanged by tasks.
+- **PyMuPDF:** Generates the final printable PDF report.
 - **Python and uv:** Provide the runtime and dependency management.
 
 API keys are loaded from `.env` and are never hardcoded in the project.
@@ -49,8 +50,9 @@ User request
     → ProductSearchResult
     → PriceComparisonResult
     → FinalRecommendationResult
-    → Deterministic Markdown renderer
-    → report.md
+    → Deterministic report renderers
+    → outputs/report.md
+    → outputs/report.pdf
 ```
 
 ## 5. Reliability and Efficiency
@@ -74,7 +76,7 @@ retry, and output-token limits are also bounded.
 
 ## 6. Output
 
-The final Markdown recommendation contains:
+The final Markdown and PDF recommendations contain:
 
 - User requirements
 - Recommended product and reason
@@ -87,7 +89,8 @@ The final Markdown recommendation contains:
 
 After the final structured result is validated, a Python callback renders the
 fixed report sections and automatically saves the recommendation to
-`report.md`.
+`outputs/report.md` and `outputs/report.pdf`. Both formats use the same
+validated data, and generating the PDF does not require another model call.
 
 ## 7. Conclusion
 

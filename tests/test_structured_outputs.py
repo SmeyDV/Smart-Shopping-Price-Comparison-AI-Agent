@@ -14,8 +14,15 @@ from crewai.tasks.output_format import OutputFormat
 from crewai.tasks.task_output import TaskOutput
 from crewai.utilities.crew_json_encoder import CrewJSONEncoder
 from pydantic import ValidationError
+import pymupdf
 
-from tools.reporting import render_recommendation_report, save_recommendation_report
+from tools.reporting import (
+    MARKDOWN_REPORT_PATH,
+    PDF_REPORT_PATH,
+    render_recommendation_pdf,
+    render_recommendation_report,
+    save_recommendation_report,
+)
 from tools.schemas import (
     AlternativeRecommendation,
     BuyingChecklist,
@@ -175,6 +182,10 @@ class StructuredOutputSchemaTests(unittest.TestCase):
 
 
 class RecommendationReportTests(unittest.TestCase):
+    def test_default_report_paths_use_the_outputs_directory(self) -> None:
+        self.assertEqual(MARKDOWN_REPORT_PATH, Path("outputs/report.md"))
+        self.assertEqual(PDF_REPORT_PATH, Path("outputs/report.pdf"))
+
     def test_renderer_preserves_required_section_order_and_escapes_tables(
         self,
     ) -> None:
@@ -199,7 +210,48 @@ class RecommendationReportTests(unittest.TestCase):
             report,
         )
 
-    def test_final_task_callback_writes_markdown_from_pydantic_output(self) -> None:
+    def test_pdf_renderer_creates_readable_report_with_source_links(self) -> None:
+        pdf = render_recommendation_pdf(sample_final_result())
+
+        self.assertTrue(pdf.startswith(b"%PDF"))
+        with pymupdf.open(stream=pdf, filetype="pdf") as document:
+            text = "\n".join(page.get_text() for page in document)
+            links = [
+                link.get("uri")
+                for page in document
+                for link in page.get_links()
+                if link.get("uri")
+            ]
+
+            self.assertGreaterEqual(document.page_count, 1)
+            self.assertEqual(
+                document.metadata["title"],
+                "Smart Shopping Recommendation",
+            )
+
+        self.assertIn("Smart Shopping Recommendation", text)
+        self.assertIn("Example Laptop 1", text)
+        self.assertIn("799.00 USD (promotion)", text)
+        self.assertIn("Final Buying Checklist", text)
+        self.assertIn("https://example.com/products/1", links)
+
+    def test_pdf_renderer_handles_an_unsupported_recommendation(self) -> None:
+        result = sample_final_result()
+        result.recommendation = None
+        result.alternatives = []
+        result.sources = []
+
+        pdf = render_recommendation_pdf(result)
+        with pymupdf.open(stream=pdf, filetype="pdf") as document:
+            text = "\n".join(page.get_text() for page in document)
+
+        self.assertIn("supported product could be recommended", text)
+        self.assertIn("No alternatives available", text)
+        self.assertIn("Could not verify", text)
+
+    def test_final_task_callback_writes_both_reports_from_pydantic_output(
+        self,
+    ) -> None:
         result = sample_final_result()
         output = TaskOutput(
             name="final_recommendation",
@@ -212,16 +264,24 @@ class RecommendationReportTests(unittest.TestCase):
         )
 
         with TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.md"
-            with patch("tools.reporting.REPORT_PATH", report_path):
+            markdown_path = Path(directory) / "outputs" / "report.md"
+            pdf_path = Path(directory) / "outputs" / "report.pdf"
+            with (
+                patch("tools.reporting.MARKDOWN_REPORT_PATH", markdown_path),
+                patch("tools.reporting.PDF_REPORT_PATH", pdf_path),
+            ):
                 save_recommendation_report(output)
 
-            rendered = report_path.read_text(encoding="utf-8")
+            rendered = markdown_path.read_text(encoding="utf-8")
+            pdf = pdf_path.read_bytes()
 
         self.assertTrue(rendered.startswith("# Smart Shopping Recommendation"))
         self.assertNotIn('"recommendation":', rendered)
+        self.assertTrue(pdf.startswith(b"%PDF"))
 
-    def test_final_task_callback_validates_deepseek_json_output(self) -> None:
+    def test_final_task_callback_validates_json_and_writes_both_reports(
+        self,
+    ) -> None:
         result = sample_final_result()
         output = TaskOutput(
             name="final_recommendation",
@@ -233,14 +293,20 @@ class RecommendationReportTests(unittest.TestCase):
         )
 
         with TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.md"
-            with patch("tools.reporting.REPORT_PATH", report_path):
+            markdown_path = Path(directory) / "outputs" / "report.md"
+            pdf_path = Path(directory) / "outputs" / "report.pdf"
+            with (
+                patch("tools.reporting.MARKDOWN_REPORT_PATH", markdown_path),
+                patch("tools.reporting.PDF_REPORT_PATH", pdf_path),
+            ):
                 save_recommendation_report(output)
 
-            rendered = report_path.read_text(encoding="utf-8")
+            rendered = markdown_path.read_text(encoding="utf-8")
+            pdf = pdf_path.read_bytes()
 
         self.assertTrue(rendered.startswith("# Smart Shopping Recommendation"))
         self.assertIn("Example Laptop 1", rendered)
+        self.assertTrue(pdf.startswith(b"%PDF"))
 
     def test_final_task_callback_rejects_invalid_json_output(self) -> None:
         output = TaskOutput(
@@ -252,8 +318,18 @@ class RecommendationReportTests(unittest.TestCase):
             output_format=OutputFormat.RAW,
         )
 
-        with self.assertRaises(ValidationError):
-            save_recommendation_report(output)
+        with TemporaryDirectory() as directory:
+            markdown_path = Path(directory) / "outputs" / "report.md"
+            pdf_path = Path(directory) / "outputs" / "report.pdf"
+            with (
+                patch("tools.reporting.MARKDOWN_REPORT_PATH", markdown_path),
+                patch("tools.reporting.PDF_REPORT_PATH", pdf_path),
+            ):
+                with self.assertRaises(ValidationError):
+                    save_recommendation_report(output)
+
+            self.assertFalse(markdown_path.exists())
+            self.assertFalse(pdf_path.exists())
 
 
 if __name__ == "__main__":

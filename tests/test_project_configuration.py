@@ -39,6 +39,7 @@ class ProjectConfigurationTests(unittest.TestCase):
             project["project"]["dependencies"],
         )
         self.assertIn("pydantic==2.12.5", project["project"]["dependencies"])
+        self.assertIn("pymupdf==1.26.7", project["project"]["dependencies"])
         self.assertEqual(project["tool"]["crewai"]["definition"], "crew.jsonc")
         self.assertEqual((ROOT / ".python-version").read_text().strip(), "3.12")
 

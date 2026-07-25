@@ -4,9 +4,10 @@ This CrewAI 1.15.5 project searches for products, verifies original product
 pages, compares total costs, and produces an evidence-based recommendation.
 The first two task handoffs exchange validated Pydantic data instead of
 free-form reports. The final agent uses DeepSeek's supported JSON-object mode;
-the callback validates that JSON as `FinalRecommendationResult` before a
-deterministic renderer converts it to Markdown. The crew deliberately labels
-information that cannot be verified instead of filling gaps with guesses.
+the callback validates that JSON as `FinalRecommendationResult` before
+deterministic renderers convert it to Markdown and PDF reports. The crew
+deliberately labels information that cannot be verified instead of filling
+gaps with guesses.
 
 ## What the crew does
 
@@ -78,10 +79,14 @@ uv run crewai run --inputs '{"product_query":"Find a reliable Android phone unde
 
 The final agent uses `response_format: {"type":"json_object"}` because that is
 the structured response type supported by DeepSeek. A task callback validates
-the returned object with Pydantic, then overwrites `report.md` with the rendered
-recommendation. Open that file in VS Code's Markdown Preview to view the
-formatted report. It is ignored by Git because it is generated output and may
-contain time-sensitive shopping information.
+the returned object with Pydantic, then creates:
+
+- `outputs/report.md` for Markdown preview and editing.
+- `outputs/report.pdf` for viewing, printing, or sharing.
+
+Both files come from the same validated result, so PDF generation does not
+require another agent or API request. The files are ignored by Git because they
+are generated output and may contain time-sensitive shopping information.
 
 To control API cost and context growth, Product Search uses at most two focused
 Exa searches and verifies at most five usable product pages plus one replacement.
@@ -104,6 +109,8 @@ uv run python -m unittest discover -s tests -v
 │   └── product_search_specialist.jsonc
 ├── knowledge/
 │   └── user_preference.txt
+├── outputs/
+│   └── .gitkeep
 ├── skills/
 │   └── .gitkeep
 ├── tests/
@@ -122,4 +129,5 @@ uv run python -m unittest discover -s tests -v
 └── uv.lock
 ```
 
-The `.env`, `.venv`, and pre-fix backups are intentionally not committed.
+The `.env`, `.venv`, pre-fix backups, and generated report files are
+intentionally not committed.
