@@ -61,6 +61,18 @@ The agents must include direct source URLs and must not fabricate prices,
 sellers, availability, reviews, warranties, shipping details, or purchase
 links. Missing evidence is labeled **Could not verify**.
 
+Before the crew starts, a deterministic input guardrail rejects explicit
+shopping requests for illegal drugs or illicit controlled substances. This
+check runs before Exa Search or DeepSeek, providing a clear rejection without
+spending API credits. It does not block legitimate health-related products
+such as drug-testing kits or medicine storage.
+
+A second deterministic guardrail rejects requests that are too vague to
+search and compare: those under two descriptive words, or missing a budget,
+product count, or explicit unlimited-budget opt-out. This also runs before
+Exa Search or DeepSeek, prompting the user for the missing scope instead of
+spending API credits on an unscoped request.
+
 Pydantic schemas give the inter-agent handoffs a fixed set of typed fields and
 reject unexpected fields. The final agent uses DeepSeek's supported JSON-object
 response mode, and the report callback validates that JSON against

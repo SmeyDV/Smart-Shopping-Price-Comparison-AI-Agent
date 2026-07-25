@@ -6,7 +6,7 @@
   "agents": [
     "product_search_specialist",
     "price_comparison_analyst",
-    "product_recommendation_advisor"
+    "product_recommendation_advisor",
   ],
 
   // Sequential order matters: search -> comparison -> recommendation.
@@ -17,8 +17,8 @@
       "expected_output": "A ProductSearchResult containing interpreted user requirements, zero to five unique ProductEvidence records with exact source URLs, structured prices and specifications, verification status and missing fields, plus ResearchIssue records and a shortfall reason when applicable.",
       "agent": "product_search_specialist",
       "output_pydantic": {
-        "python": "tools.schemas.ProductSearchResult"
-      }
+        "python": "tools.schemas.ProductSearchResult",
+      },
     },
     {
       "name": "price_comparison",
@@ -27,8 +27,8 @@
       "agent": "price_comparison_analyst",
       "context": ["product_search"],
       "output_pydantic": {
-        "python": "tools.schemas.PriceComparisonResult"
-      }
+        "python": "tools.schemas.PriceComparisonResult",
+      },
     },
     {
       "name": "final_recommendation",
@@ -37,9 +37,9 @@
       "agent": "product_recommendation_advisor",
       "context": ["product_search", "price_comparison"],
       "callback": {
-        "python": "tools.reporting.save_recommendation_report"
-      }
-    }
+        "python": "tools.reporting.save_recommendation_report",
+      },
+    },
   ],
 
   "process": "sequential",
@@ -50,12 +50,12 @@
   "tracing": false,
   "before_kickoff_callbacks": [
     {
-      "python": "tools.runtime_checks.validate_runtime"
-    }
+      "python": "tools.runtime_checks.validate_runtime",
+    },
   ],
 
   // A runnable sample default. Override it with `crewai run --inputs`.
   "inputs": {
-    "product_query": "Find the best gaming laptop under $1000 available to a buyer in Cambodia. Compare at least five products and recommend the best value."
-  }
+    "product_query": "Find me the best dell laptop in phnom penh price around 400$",
+  },
 }

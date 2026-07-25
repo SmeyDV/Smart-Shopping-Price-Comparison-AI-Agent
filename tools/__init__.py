@@ -1,1 +1,1 @@
-"""Project-local schemas, reporting helpers, tools, and runtime checks."""
+"""Project-local schemas, guardrails, reporting helpers, and runtime checks."""

@@ -77,6 +77,18 @@ To ask a different shopping question:
 uv run crewai run --inputs '{"product_query":"Find a reliable Android phone under $400 available in Cambodia."}'
 ```
 
+Before any search or model call, a deterministic input guardrail rejects
+explicit shopping requests for illegal drugs or illicit controlled substances.
+The run stops with a clear `Shopping request rejected` message, so unsafe
+requests do not consume Exa or DeepSeek credits. Legitimate products such as
+drug-testing kits, medicine storage, and pharmacy equipment remain supported.
+
+A second guardrail rejects requests that are too vague to search and
+compare: fewer than two descriptive words, or no budget, product count, or
+explicit "any budget" opt-out. For example, `"laptop"` or `"best restaurant
+in Phnom Penh"` are rejected, while `"gaming laptop under $1000"` or
+`"compare top 5 wireless earbuds"` pass through.
+
 The final agent uses `response_format: {"type":"json_object"}` because that is
 the structured response type supported by DeepSeek. A task callback validates
 the returned object with Pydantic, then creates:

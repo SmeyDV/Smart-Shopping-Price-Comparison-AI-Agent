@@ -10,6 +10,7 @@ from unittest.mock import patch
 import json5
 
 from tools.runtime_checks import validate_runtime
+from tools.guardrails import UnsupportedShoppingRequestError, VagueShoppingRequestError
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -190,16 +191,92 @@ class ProjectConfigurationTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 RuntimeError, "DEEPSEEK_API_KEY, EXA_API_KEY"
             ):
-                validate_runtime({"product_query": "gaming laptop"})
+                validate_runtime({"product_query": "gaming laptop under $1000"})
 
     def test_runtime_check_accepts_present_keys_and_query(self) -> None:
-        inputs = {"product_query": "gaming laptop"}
+        inputs = {"product_query": "gaming laptop under $1000"}
         with patch.dict(
             os.environ,
             {"DEEPSEEK_API_KEY": "test-deepseek", "EXA_API_KEY": "test-exa"},
             clear=True,
         ):
             self.assertIs(validate_runtime(inputs), inputs)
+
+    def test_runtime_guardrail_rejects_illegal_drug_requests_before_key_checks(
+        self,
+    ) -> None:
+        unsafe_queries = [
+            "Find the best illegal drug in Cambodia under $200",
+            "Compare ILLEGAL   DRUGS by price",
+            "Find cheap cocaine",
+            "Order crystal meth",
+            "Find fentanyl test strips and cheap cocaine",
+        ]
+
+        with patch.dict(os.environ, {}, clear=True):
+            for query in unsafe_queries:
+                with self.subTest(query=query):
+                    with self.assertRaisesRegex(
+                        UnsupportedShoppingRequestError,
+                        "Shopping request rejected",
+                    ):
+                        validate_runtime({"product_query": query})
+
+    def test_runtime_guardrail_allows_legitimate_health_products(self) -> None:
+        safe_queries = [
+            "Compare home drug testing kits under $50",
+            "Find fentanyl test strips under $30 for a harm-reduction program",
+            "Find a pharmacy blood pressure monitor under $60",
+            "Find a locked medicine storage box under $40",
+        ]
+
+        with patch.dict(
+            os.environ,
+            {"DEEPSEEK_API_KEY": "test-deepseek", "EXA_API_KEY": "test-exa"},
+            clear=True,
+        ):
+            for query in safe_queries:
+                with self.subTest(query=query):
+                    inputs = {"product_query": query}
+                    self.assertIs(validate_runtime(inputs), inputs)
+
+    def test_runtime_guardrail_rejects_vague_scope_requests(self) -> None:
+        vague_queries = [
+            "laptop",
+            "cheap phone",
+            "Find me the best eating restaurent in cambodia phnom penh",
+            "Find a good mechanical keyboard",
+        ]
+
+        with patch.dict(
+            os.environ,
+            {"DEEPSEEK_API_KEY": "test-deepseek", "EXA_API_KEY": "test-exa"},
+            clear=True,
+        ):
+            for query in vague_queries:
+                with self.subTest(query=query):
+                    with self.assertRaisesRegex(
+                        VagueShoppingRequestError,
+                        "Shopping request rejected",
+                    ):
+                        validate_runtime({"product_query": query})
+
+    def test_runtime_guardrail_allows_scoped_requests(self) -> None:
+        scoped_queries = [
+            "Find a gaming laptop under $1000 for Cambodia",
+            "Compare top 5 wireless earbuds",
+            "Find a 4K monitor for video editing, any budget",
+        ]
+
+        with patch.dict(
+            os.environ,
+            {"DEEPSEEK_API_KEY": "test-deepseek", "EXA_API_KEY": "test-exa"},
+            clear=True,
+        ):
+            for query in scoped_queries:
+                with self.subTest(query=query):
+                    inputs = {"product_query": query}
+                    self.assertIs(validate_runtime(inputs), inputs)
 
 
 if __name__ == "__main__":
