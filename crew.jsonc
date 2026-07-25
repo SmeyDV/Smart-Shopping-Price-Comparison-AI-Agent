@@ -56,6 +56,6 @@
 
   // A runnable sample default. Override it with `crewai run --inputs`.
   "inputs": {
-    "product_query": "Find me the best dell laptop in phnom penh price around 400$",
+    "product_query": "I want to buy a dell laptop new not used , price under 500$",
   },
 }
