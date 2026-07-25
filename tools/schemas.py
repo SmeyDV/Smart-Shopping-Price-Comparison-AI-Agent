@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from typing import Annotated
 
 from pydantic import (
     AnyHttpUrl,
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     Field,
     PlainSerializer,
@@ -73,6 +74,35 @@ class Money(StructuredModel):
         return format(amount, "f")
 
 
+def _coerce_incomplete_money_to_none(value: object) -> object:
+    """Treat a Money object with a missing or invalid amount as absent.
+
+    Agents sometimes represent an unknown cost as a partially filled object
+    (e.g. {"currency": "USD"} with no amount, or amount: "unknown") instead
+    of a null field, which would otherwise fail schema validation and
+    discard an entire task result after paid search work.
+    """
+
+    if not isinstance(value, dict):
+        return value
+    amount = value.get("amount")
+    if amount is None:
+        return None
+    try:
+        if Decimal(str(amount)) < 0:
+            return None
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    return value
+
+
+OptionalMoney = Annotated[
+    Money | None, BeforeValidator(_coerce_incomplete_money_to_none)
+]
+"""A Money field that becomes null instead of failing validation when the
+agent supplies a partial or invalid amount."""
+
+
 class ProductSpecification(StructuredModel):
     """One sourced product specification."""
 
@@ -103,13 +133,13 @@ class ProductEvidence(StructuredModel):
     """Structured evidence collected for one unique product."""
 
     exact_product_model: str = Field(min_length=1)
-    listed_price: Money | None = None
-    original_price: Money | None = None
+    listed_price: OptionalMoney = None
+    original_price: OptionalMoney = None
     specifications: list[ProductSpecification] = Field(default_factory=list)
     seller: str | None = None
     availability: str | None = None
     warranty: str | None = None
-    shipping_cost: Money | None = None
+    shipping_cost: OptionalMoney = None
     delivery_information: str | None = None
     source_url: SerializableHttpUrl
     verification_status: VerificationStatus
@@ -130,10 +160,10 @@ class ProductComparison(StructuredModel):
     """Price and value analysis for one product from the search result."""
 
     exact_product_model: str = Field(min_length=1)
-    listed_price: Money | None = None
-    original_price: Money | None = None
-    shipping_cost: Money | None = None
-    total_known_cost: Money | None = None
+    listed_price: OptionalMoney = None
+    original_price: OptionalMoney = None
+    shipping_cost: OptionalMoney = None
+    total_known_cost: OptionalMoney = None
     total_cost_status: TotalCostStatus
     missing_cost_components: list[str] = Field(default_factory=list)
     warranty: str | None = None
@@ -178,7 +208,7 @@ class RecommendationDetails(StructuredModel):
     """The selected product and its purchasing evidence."""
 
     exact_product_model: str = Field(min_length=1)
-    verified_price: Money | None = None
+    verified_price: OptionalMoney = None
     seller: str | None = None
     availability: str | None = None
     warranty: str | None = None
@@ -192,7 +222,7 @@ class AlternativeRecommendation(StructuredModel):
 
     rank: int = Field(ge=1)
     exact_product_model: str = Field(min_length=1)
-    price: Money | None = None
+    price: OptionalMoney = None
     seller: str | None = None
     main_advantage: str = Field(min_length=1)
     verification_status: VerificationStatus
