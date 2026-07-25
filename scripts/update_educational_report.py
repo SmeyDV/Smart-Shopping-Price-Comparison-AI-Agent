@@ -1,8 +1,9 @@
 """Enhance the educational Smart Shopping AI Agent Word report.
 
 The script preserves the source document and writes a new DOCX containing:
-- a visual system architecture diagram;
+- a visual system architecture diagram that includes the Streamlit interface;
 - concise design-decision and structured-handoff explanations;
+- an implementation-focused explanation of the local web interface;
 - an educational evaluation matrix based on the offline test suite; and
 - corrected Markdown/PDF output references and section numbering.
 """
@@ -112,6 +113,8 @@ def format_table(table, widths: tuple[float, ...] | None = None) -> None:
                     if row_index == 0:
                         run.bold = True
                         run.font.color.rgb = RGBColor(255, 255, 255)
+                    else:
+                        run.font.color.rgb = RGBColor.from_string(TEXT)
 
 
 def add_table(document: Document, rows: list[list[str]], widths: tuple[float, ...]):
@@ -290,8 +293,8 @@ def create_architecture_diagram(path: Path) -> None:
     draw_box(
         draw,
         (main_left, 55, main_right, 160),
-        "User Shopping Request",
-        "{product_query}: product, budget, preferences, and location",
+        "Streamlit Web Interface (app.py)",
+        "Enter {product_query}, use examples, view progress, and open report downloads",
         fill=f"#{NAVY}",
         outline=f"#{NAVY}",
         title_color="white",
@@ -299,13 +302,30 @@ def create_architecture_diagram(path: Path) -> None:
         title_font=title_font,
         subtitle_font=body_font,
     )
+    draw_box(
+        draw,
+        (25, 55, 350, 160),
+        "Browser User",
+        "Single-user local interface",
+        fill=f"#{LIGHT_BLUE}",
+        outline=f"#{MEDIUM_BLUE}",
+        title_color=f"#{NAVY}",
+        subtitle_color=f"#{TEXT}",
+        title_font=small_title_font,
+        subtitle_font=small_body_font,
+    )
+    draw.line((350, 107, main_left, 107), fill=f"#{MEDIUM_BLUE}", width=7)
+    draw.polygon(
+        [(main_left - 20, 90), (main_left - 20, 124), (main_left, 107)],
+        fill=f"#{MEDIUM_BLUE}",
+    )
     draw_down_arrow(draw, center_x, 160, 225)
 
     draw_box(
         draw,
         (main_left, 225, main_right, 355),
-        "Runtime Checks and Guardrails",
-        "Validate request scope and required API keys before paid work",
+        "Safe Crew Runner and Runtime Guardrails",
+        "JSON argument list, shell disabled, timeout, request checks, and API-key checks",
         fill=f"#{PALE_BLUE}",
         outline=f"#{MEDIUM_BLUE}",
         title_color=f"#{NAVY}",
@@ -465,7 +485,7 @@ def create_architecture_diagram(path: Path) -> None:
         draw,
         (390, 1640, 850, 1755),
         "Markdown Report",
-        "outputs/report.md",
+        "Preview + outputs/report.md download",
         fill=f"#{NAVY}",
         outline=f"#{NAVY}",
         title_color="white",
@@ -477,7 +497,7 @@ def create_architecture_diagram(path: Path) -> None:
         draw,
         (950, 1640, 1410, 1755),
         "PDF Report",
-        "outputs/report.pdf",
+        "outputs/report.pdf download",
         fill=f"#{NAVY}",
         outline=f"#{NAVY}",
         title_color="white",
@@ -511,7 +531,36 @@ def update_existing_content(document: Document) -> None:
         "overall value. The final agent selects the best-supported option. "
         "The tasks exchange validated Pydantic objects, and a deterministic "
         "Python callback renders the final result as matching Markdown and PDF "
-        "reports with alternatives and source URLs.",
+        "reports with alternatives and source URLs. A Streamlit web interface "
+        "now lets a local user submit a request, follow the run status, read the "
+        "Markdown report, and download either report format from a browser.",
+    )
+
+    introduction = find_paragraph(
+        document,
+        "This project addresses that gap by turning the shopping process into "
+        "a small research workflow. Instead of generating an immediate answer "
+        "from memory, the system searches current web sources, organizes the "
+        "findings, and produces a recommendation that can be checked by the user.",
+    )
+    replace_paragraph_text(
+        introduction,
+        "This project addresses that gap by turning the shopping process into "
+        "a small research workflow. Instead of generating an immediate answer "
+        "from memory, the system searches current web sources, organizes the "
+        "findings, and produces a recommendation that can be checked by the user. "
+        "The workflow can be started from the command line or through a local "
+        "Streamlit interface designed for a clearer, beginner-friendly experience.",
+    )
+
+    objective = find_paragraph(
+        document,
+        "Provide direct source URLs and label missing evidence clearly.",
+    )
+    replace_paragraph_text(
+        objective,
+        "Provide direct source URLs, label missing evidence clearly, and make "
+        "the resulting reports easy to read and download in a browser.",
     )
 
     output_paragraph = find_paragraph(
@@ -528,28 +577,57 @@ def update_existing_content(document: Document) -> None:
         "A deterministic Python callback then renders the same structured data "
         "into `outputs/report.md` and `outputs/report.pdf`. Both formats contain "
         "the same recommendation and sources, and PDF generation does not require "
-        "another agent or model call.",
+        "another agent or model call. Streamlit previews the Markdown result and "
+        "offers both files as downloads.",
     )
 
     heading_updates = {
-        "11. Safe-Buying Guidance": "12. Safe-Buying Guidance",
-        "12. Current Limitations": "13. Current Limitations",
-        "13. Future Improvements": "14. Future Improvements",
-        "14. Conclusion": "15. Conclusion",
+        "11. Safe-Buying Guidance": "13. Safe-Buying Guidance",
+        "12. Current Limitations": "14. Current Limitations",
+        "13. Future Improvements": "15. Future Improvements",
+        "14. Conclusion": "16. Conclusion",
     }
     for old_text, new_text in heading_updates.items():
         replace_paragraph_text(find_paragraph(document, old_text), new_text)
-    find_paragraph(document, "15. Conclusion").paragraph_format.page_break_before = True
+    find_paragraph(document, "16. Conclusion").paragraph_format.page_break_before = True
+
+    limitations = find_paragraph(
+        document,
+        "The system can reduce research time, but it cannot remove every "
+        "uncertainty. Some websites block automated access, some sellers "
+        "publish incomplete specifications, and shipping costs may only "
+        "appear during checkout. Prices and stock can also change after the "
+        "report is generated. Pydantic validates the structure of task outputs, "
+        "not the truth of every claim.",
+    )
+    replace_paragraph_text(
+        limitations,
+        "The system can reduce research time, but it cannot remove every "
+        "uncertainty. Some websites block automated access, some sellers "
+        "publish incomplete specifications, and shipping costs may only appear "
+        "during checkout. Prices and stock can also change after the report is "
+        "generated. Pydantic validates the structure of task outputs, not the "
+        "truth of every claim. The current Streamlit version is intended for one "
+        "local user: all runs share outputs/report.md and outputs/report.pdf, so "
+        "concurrent browser sessions could overwrite each other’s files.",
+    )
 
     for table in document.tables:
         for row in table.rows:
             key = row.cells[0].text.strip()
             if key == "Main Output":
-                row.cells[1].text = "Evidence-based Markdown and PDF purchasing reports"
-            elif key == "11–14":
-                row.cells[0].text = "11–15"
                 row.cells[1].text = (
-                    "Evaluation, safe buying, limitations, improvements, and conclusion"
+                    "Streamlit interface with evidence-based Markdown and PDF reports"
+                )
+            elif key == "11–14":
+                row.cells[0].text = "11–16"
+                row.cells[1].text = (
+                    "Web interface, evaluation, safe buying, limitations, "
+                    "improvements, and conclusion"
+                )
+            elif key == "01" and "shopping request" in row.cells[1].text:
+                row.cells[1].text = (
+                    "The user submits {product_query} through Streamlit or the CLI."
                 )
             elif key == "05":
                 row.cells[1].text = (
@@ -561,23 +639,76 @@ def update_existing_content(document: Document) -> None:
                 row.cells[1].text = "outputs/report.md; outputs/report.pdf"
             elif key == "Report renderer":
                 row.cells[1].text = "tools.reporting.save_recommendation_report"
+            elif key == "User interface":
+                row.cells[0].text = "Multi-user web deployment"
+                row.cells[1].text = (
+                    "Add background jobs, per-run report storage, authentication, "
+                    "and deployment controls for concurrent users."
+                )
+
+    workflow_table = next(
+        table
+        for table in document.tables
+        if table.cell(0, 0).text.strip() == "01"
+        and "{product_query}" in table.cell(0, 1).text
+    )
+    workflow_row = workflow_table.add_row()
+    workflow_row.cells[0].text = "06"
+    workflow_row.cells[1].text = (
+        "Streamlit previews the Markdown result and provides Markdown/PDF downloads."
+    )
+    format_table(workflow_table, widths=(0.65, 5.55))
 
     technology_table = document.tables[5]
-    if not any(row.cells[0].text.strip() == "PyMuPDF" for row in technology_table.rows):
+    if not any(
+        row.cells[0].text.strip() == "PyMuPDF" for row in technology_table.rows
+    ):
         cells = technology_table.add_row().cells
         cells[0].text = "PyMuPDF"
         cells[1].text = "Renders the validated recommendation as a printable PDF."
         cells[2].text = "Creates a shareable report without another model call."
-        row_index = len(technology_table.rows) - 1
-        fill = LIGHT_BLUE if row_index % 2 else WHITE
-        for cell in cells:
-            set_cell_shading(cell, fill)
-            set_cell_margins(cell)
-            cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-            for paragraph in cell.paragraphs:
-                paragraph.paragraph_format.space_after = Pt(0)
-                for run in paragraph.runs:
-                    run.font.size = Pt(8)
+    if not any(
+        row.cells[0].text.strip() == "Streamlit" for row in technology_table.rows
+    ):
+        cells = technology_table.add_row().cells
+        cells[0].text = "Streamlit"
+        cells[1].text = (
+            "Provides the local browser interface, progress feedback, report "
+            "preview, and downloads."
+        )
+        cells[2].text = (
+            "Integrates directly with the existing Python workflow and is easy "
+            "to run for a project demonstration."
+        )
+    format_table(technology_table, widths=(1.2, 2.25, 2.65))
+
+    configuration_table = next(
+        table
+        for table in document.tables
+        if table.cell(0, 0).text.strip() == "Item"
+        and table.cell(0, 1).text.strip() == "Configuration"
+    )
+    if not any(
+        row.cells[0].text.strip() == "Web interface"
+        for row in configuration_table.rows
+    ):
+        cells = configuration_table.add_row().cells
+        cells[0].text = "Web interface"
+        cells[1].text = "Streamlit 1.60.0 in app.py"
+    format_table(configuration_table, widths=(1.65, 4.55))
+
+    command_table = next(
+        table
+        for table in document.tables
+        if "uv run crewai run" in table.cell(0, 0).text
+    )
+    command_table.cell(0, 0).text = (
+        "cd ~/smart_shopping_price_comparison_agent\n"
+        "uv sync --locked\n"
+        "uv run streamlit run app.py\n\n"
+        "CLI alternative:\n"
+        "uv run crewai run"
+    )
 
 
 def insert_architecture_sections(document: Document, diagram_path: Path) -> None:
@@ -585,7 +716,7 @@ def insert_architecture_sections(document: Document, diagram_path: Path) -> None
         table
         for table in document.tables
         if table.cell(0, 0).text.strip() == "01"
-        and "shopping request" in table.cell(0, 1).text
+        and "{product_query}" in table.cell(0, 1).text
     )
     anchor = workflow_table._tbl
 
@@ -594,10 +725,11 @@ def insert_architecture_sections(document: Document, diagram_path: Path) -> None
 
     explanation = create_paragraph(
         document,
-        "The diagram below shows both the flow of information and the separation "
-        "of responsibilities. Search tools are available only where new evidence "
-        "is needed, while each completed stage passes a typed result to the next "
-        "agent.",
+        "The diagram below shows how the browser interface starts the existing "
+        "CrewAI workflow without changing its responsibilities. Search tools are "
+        "available only where new evidence is needed, while each completed stage "
+        "passes a typed result to the next agent. The validated final result is "
+        "rendered once and returned to Streamlit for preview and download.",
         "Normal",
     )
     anchor = insert_after(anchor, explanation)
@@ -611,9 +743,9 @@ def insert_architecture_sections(document: Document, diagram_path: Path) -> None
     if doc_properties:
         doc_properties[0].set(
             "descr",
-            "Architecture diagram showing the user request, runtime checks, "
-            "three sequential CrewAI agents, Pydantic handoffs, and Markdown "
-            "and PDF report outputs.",
+            "Architecture diagram showing the browser user, Streamlit interface, "
+            "safe crew runner, runtime checks, three sequential CrewAI agents, "
+            "Pydantic handoffs, and downloadable Markdown and PDF reports.",
         )
         doc_properties[0].set("title", "Smart Shopping AI Agent Architecture")
     anchor = insert_after(anchor, image_paragraph)
@@ -649,6 +781,11 @@ def insert_architecture_sections(document: Document, diagram_path: Path) -> None
         (
             "Deterministic reporting: Python creates Markdown and PDF from one "
             "validated result, avoiding an additional model call."
+        ),
+        (
+            "Thin interface wrapper: Streamlit invokes the same crew command, so "
+            "the browser experience reuses the existing schemas, safety checks, "
+            "and reporting callback instead of duplicating them."
         ),
     ]
     for decision in decisions:
@@ -700,20 +837,109 @@ def insert_architecture_sections(document: Document, diagram_path: Path) -> None
     insert_after(anchor, callout)
 
 
+def insert_web_interface_section(document: Document) -> None:
+    evaluation_label = find_paragraph(document, "EVALUATION")
+    anchor = evaluation_label._p.getprevious()
+
+    heading = create_paragraph(document, "11. Streamlit Web Interface", "Heading 1")
+    heading.paragraph_format.page_break_before = True
+    anchor = insert_after(anchor, heading)
+
+    paragraph = create_paragraph(
+        document,
+        "The project now includes `app.py`, a Streamlit front end that makes the "
+        "multi-agent workflow usable from a local browser. It is deliberately a "
+        "thin interface: the app collects the shopping request and invokes the "
+        "same `crewai run` workflow used by the command line. The agent prompts, "
+        "Pydantic schemas, guardrails, and report callback remain unchanged.",
+        "Normal",
+    )
+    anchor = insert_after(anchor, paragraph)
+
+    subheading = create_paragraph(
+        document,
+        "11.1 User Experience and Application Flow",
+        "Heading 2",
+    )
+    anchor = insert_after(anchor, subheading)
+
+    interface_table = add_table(
+        document,
+        [
+            ["Interface Element", "User Experience", "Implementation Behavior"],
+            [
+                "Request entry",
+                "Text area plus three example prompts",
+                "Stores the selected or typed request in Streamlit session state",
+            ],
+            [
+                "Run control",
+                "Compare Products button and several-minute progress spinner",
+                "Disables controls during a run to reduce accidental duplicate requests",
+            ],
+            [
+                "Crew invocation",
+                "No command-line knowledge required",
+                "Serializes product_query as JSON and passes an argument list with shell disabled",
+            ],
+            [
+                "Results",
+                "Readable recommendation appears in the browser",
+                "Renders outputs/report.md and offers Markdown/PDF download buttons",
+            ],
+            [
+                "Failures",
+                "Clear messages for rejected requests, missing keys, timeouts, and other errors",
+                "Shows a short redacted diagnostic view and saves local troubleshooting output",
+            ],
+        ],
+        widths=(1.15, 2.15, 2.95),
+    )
+    anchor = insert_after(anchor, interface_table)
+
+    subheading = create_paragraph(
+        document,
+        "11.2 Safety, Scope, and Local Operation",
+        "Heading 2",
+    )
+    anchor = insert_after(anchor, subheading)
+
+    paragraph = create_paragraph(
+        document,
+        "The interface builds the subprocess command as a list, uses JSON "
+        "serialization for the request, sets `shell=False`, captures output, and "
+        "applies a 600-second timeout. The existing before-kickoff callback still "
+        "rejects prohibited or underspecified requests and checks required API "
+        "keys before paid work. The first release is intentionally local and "
+        "single-user because all runs share the same report filenames.",
+        "Normal",
+    )
+    anchor = insert_after(anchor, paragraph)
+
+    launch_callout = add_callout(
+        document,
+        "Launch the web interface\n"
+        "uv sync --locked\n"
+        "uv run streamlit run app.py\n\n"
+        "The browser normally opens at http://localhost:8501.",
+    )
+    insert_after(anchor, launch_callout)
+
+
 def insert_evaluation_section(document: Document) -> None:
     evaluation_label = find_paragraph(document, "EVALUATION")
     anchor = evaluation_label._p
 
-    heading = create_paragraph(document, "11. Educational Evaluation", "Heading 1")
+    heading = create_paragraph(document, "12. Educational Evaluation", "Heading 1")
     anchor = insert_after(anchor, heading)
 
     paragraph = create_paragraph(
         document,
         "The offline test suite was run on 25 July 2026 using "
-        "`python -m unittest discover -s tests -v`. All 27 tests passed without "
+        "`python -m unittest discover -s tests -v`. All 52 tests passed without "
         "using Exa Search or DeepSeek credits. The tests demonstrate that the "
-        "project is configured correctly and handles its structured outputs "
-        "consistently.",
+        "project is configured correctly, handles its structured outputs "
+        "consistently, and exercises the interface’s testable helper functions.",
         "Normal",
     )
     anchor = insert_after(anchor, paragraph)
@@ -748,6 +974,16 @@ def insert_evaluation_section(document: Document) -> None:
                 "Passed",
             ],
             [
+                "Streamlit helpers",
+                "Input validation, safe argument construction, secret redaction, timeout handling, and failure classification",
+                "Passed",
+            ],
+            [
+                "Interface smoke check",
+                "Initial page, four buttons, one request field, empty-input error, and example selection",
+                "Passed offline",
+            ],
+            [
                 "Live factual accuracy",
                 "Prices, stock, seller claims, and delivery information can change online",
                 "Manual verification required",
@@ -761,7 +997,9 @@ def insert_evaluation_section(document: Document) -> None:
         document,
         "Evaluation interpretation\n"
         "Passing tests shows that the software structure, validation, and report "
-        "generation work as intended. It does not prove that every live shopping "
+        "generation behave as expected in offline checks. The smoke check confirms "
+        "that the Streamlit page loads and its non-paid interactions work. It does "
+        "not replace a live end-to-end shopping run or prove that every online "
         "claim is permanently correct, so source links and the final buying "
         "checklist remain important.",
     )
@@ -793,13 +1031,15 @@ def main() -> None:
     document = Document(source)
     update_existing_content(document)
     insert_architecture_sections(document, diagram_path)
+    insert_web_interface_section(document)
     insert_evaluation_section(document)
 
     document.core_properties.title = (
         "Smart Shopping & Price-Comparison AI Agent — Educational Project Report"
     )
     document.core_properties.subject = (
-        "CrewAI multi-agent architecture, implementation, and educational evaluation"
+        "CrewAI multi-agent architecture, Streamlit interface, implementation, "
+        "and educational evaluation"
     )
     document.core_properties.modified = datetime.now(timezone.utc)
     document.save(output)

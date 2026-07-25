@@ -111,6 +111,43 @@ iteration, retry, and output-token limits are also intentionally bounded.
 uv run python -m unittest discover -s tests -v
 ```
 
+## Web interface
+
+A Streamlit interface (`app.py`) wraps the same `crewai run` command described
+above: it prompts for a product-shopping request, runs the crew as a
+subprocess, and then renders `outputs/report.md` with download buttons for
+`outputs/report.md` and `outputs/report.pdf`.
+
+Install dependencies (Streamlit is a pinned dependency in `pyproject.toml`,
+same as the rest of the project):
+
+```bash
+uv sync --locked
+```
+
+Launch the interface:
+
+```bash
+uv run streamlit run app.py
+```
+
+Streamlit opens the app in your browser, normally at
+`http://localhost:8501`. Required environment variables are the same as
+above — `DEEPSEEK_API_KEY` and `EXA_API_KEY` in `.env` — checked by the same
+`validate_runtime` guardrail before any paid search or model call. Unsafe or
+too-vague requests are rejected in the interface with the same messages the
+CLI produces.
+
+This first version is intended for a single local user: `outputs/report.md`
+and `outputs/report.pdf` are shared, fixed-path files, so two concurrent runs
+(or two browser tabs) would overwrite each other's report.
+
+If a run fails, the interface shows a clean error message and also saves the
+full (secret-redacted) crew output to `outputs/last_run_debug.log` for
+troubleshooting. This is deliberate: a browser page reload starts a new
+Streamlit session with fresh state, so an in-page error would otherwise be
+lost if you refresh before reading it.
+
 ## Project structure
 
 ```text
@@ -126,16 +163,19 @@ uv run python -m unittest discover -s tests -v
 ├── skills/
 │   └── .gitkeep
 ├── tests/
+│   ├── test_app.py
 │   ├── test_project_configuration.py
 │   └── test_structured_outputs.py
 ├── tools/
 │   ├── __init__.py
+│   ├── guardrails.py
 │   ├── reporting.py
 │   ├── runtime_checks.py
 │   └── schemas.py
 ├── .env.example
 ├── .gitignore
 ├── .python-version
+├── app.py
 ├── crew.jsonc
 ├── pyproject.toml
 └── uv.lock

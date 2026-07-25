@@ -8,6 +8,7 @@ dependencies = [
     "crewai-tools[exa-py]==1.15.5",
     "pydantic==2.12.5",
     "pymupdf==1.26.7",
+    "streamlit==1.60.0",
 ]
 
 [build-system]
